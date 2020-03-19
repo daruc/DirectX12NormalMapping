@@ -6,8 +6,17 @@
 #include <DirectXMath.h>
 #include <DirectXMesh.h>
 #include <WaveFrontReader.h>
+#include <vector>
 
 using namespace DirectX;
+using namespace std;
+
+struct Texture
+{
+	unique_ptr<BYTE[]> data;
+	UINT width;
+	UINT height;
+};
 
 class Actor
 {
@@ -20,7 +29,11 @@ private:
 
 	WaveFrontReader<DWORD> waveFrontReader;
 
+	Texture m_albedoTex;
+	Texture m_normalTex;
+
 	void UpdateTransformationMat();
+	Texture LoadTextureFromFile(const wchar_t* const fileName);
 
 public:
 	Actor();
@@ -31,8 +44,14 @@ public:
 	void SetTranslation(const XMFLOAT3* const translationVec);
 	XMMATRIX GetWorldMat() const;
 	void LoadObjFromFile(const wchar_t* const fileName);
-	void ClearObj();
+	void ReleaseObj();
 	std::vector<WaveFrontReader<DWORD>::Vertex>& GetVerticles();
 	std::vector<DWORD>& GetIndices();
+	void LoadAlbedoFromFile(const wchar_t* const fileName);
+	void LoadNormalFromFile(const wchar_t* const fileName);
+	void ReleaseAlbedo();
+	void ReleaseNormal();
+	Texture& GetAlbedo();
+	Texture& GetNormal();
 };
 

@@ -290,83 +290,13 @@ void Engine::LoadShaders()
 
 void Engine::LoadTextures()
 {
-	CoInitialize(nullptr);
-	ComPtr<IWICImagingFactory> imagingFactory = nullptr;
-
-	HRESULT hr = CoCreateInstance(
-		CLSID_WICImagingFactory,
-		nullptr,
-		CLSCTX_INPROC_SERVER,
-		IID_PPV_ARGS(&imagingFactory)
-	);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	IWICBitmapDecoder* bitmapDecoder = nullptr;	// TODO: release
-
-	hr = imagingFactory->CreateDecoderFromFilename(
-		TEXT("Assets\\color.png"),
-		nullptr,
-		GENERIC_READ,
-		WICDecodeMetadataCacheOnDemand,
-		&bitmapDecoder
-	);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	IWICBitmapFrameDecode* frame = nullptr;	// TODO: release
-	UINT textureWidth, textureHeight;
-
-	hr = bitmapDecoder->GetFrame(0, &frame);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	hr = frame->GetSize(&textureWidth, &textureHeight);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	const UINT bytesPerPixel = 4;
-
-	UINT textureSize = textureWidth * textureHeight * bytesPerPixel;
-	if (textureSize == 0)
-	{
-		exit(-1);
-	}
-
-	WICPixelFormatGUID pixelFormat;
-	hr = frame->GetPixelFormat(&pixelFormat);
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	m_textureData = std::make_unique<BYTE[]>(textureSize);
-
-	UINT bytesPerRow = textureWidth * bytesPerPixel;
-	hr = frame->CopyPixels(nullptr, bytesPerRow, textureSize, m_textureData.get());
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
+	m_actor.LoadAlbedoFromFile(TEXT("Assets\\color.png"));
 
 	D3D12_RESOURCE_DESC textureDesc = {};
 	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	textureDesc.Alignment = 0;
-	textureDesc.Width = textureWidth;
-	textureDesc.Height = textureHeight;
+	textureDesc.Width = m_actor.GetAlbedo().width;
+	textureDesc.Height = m_actor.GetAlbedo().height;
 	textureDesc.DepthOrArraySize = 1;
 	textureDesc.MipLevels = 1;
 	textureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -375,7 +305,7 @@ void Engine::LoadTextures()
 	textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-	hr = m_device->CreateCommittedResource(
+	HRESULT hr = m_device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
 		&textureDesc,
@@ -458,9 +388,9 @@ void Engine::LoadTextures()
 
 	// store texture in upload heap
 	D3D12_SUBRESOURCE_DATA textureSubresource = {};
-	textureSubresource.pData = m_textureData.get();
-	textureSubresource.RowPitch = bytesPerRow;
-	textureSubresource.SlicePitch = bytesPerRow * textureHeight;
+	textureSubresource.pData = m_actor.GetAlbedo().data.get();
+	textureSubresource.RowPitch = 4 * m_actor.GetAlbedo().width;
+	textureSubresource.SlicePitch = textureSubresource.RowPitch * m_actor.GetAlbedo().height;
 
 	UpdateSubresources(m_commandList.Get(), m_textureDefaultHeap.Get(), m_textureUploadHeap.Get(), 0, 0, 1, &textureSubresource);
 
@@ -1159,16 +1089,16 @@ void Engine::Init(HWND hwnd)
 	m_prevTime = high_resolution_clock::now();
 }
 
-void Engine::Input(float mouseX, float mouseY, bool rightMouseBtnIsDown)
+void Engine::Input(int mouseX, int mouseY, bool rightMouseBtnIsDown)
 {
 	if (rightMouseBtnIsDown)
 	{
-		m_mouseDeltaX += (mouseX - m_mouseX);
-		m_mouseDeltaY += (mouseY - m_mouseY);
+		m_mouseDeltaX += (static_cast<float>(mouseX) - m_mouseX);
+		m_mouseDeltaY += (static_cast<float>(mouseY) - m_mouseY);
 	}
 
-	m_mouseX = mouseX;
-	m_mouseY = mouseY;
+	m_mouseX = static_cast<float>(mouseX);
+	m_mouseY = static_cast<float>(mouseY);
 }
 
 void Engine::Update()
@@ -1313,6 +1243,6 @@ void Engine::RenderLightDepth()
 void Engine::Destroy()
 {
 	CloseHandle(m_fenceEvent);
-	m_actor.ClearObj();
+	m_actor.ReleaseObj();
 }
 

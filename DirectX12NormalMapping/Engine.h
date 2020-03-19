@@ -111,7 +111,6 @@ private:
 	Camera m_camera;
 
 	// textures
-	std::unique_ptr<BYTE[]> m_textureData;
 	ComPtr<ID3D12Resource> m_textureDefaultHeap;
 	ComPtr<ID3D12Resource> m_textureUploadHeap;
 	ComPtr<ID3D12DescriptorHeap> m_textureDescriptorHeap;
@@ -146,7 +145,7 @@ public:
 	~Engine();
 
 	void Init(HWND hwnd);
-	void Input(float mouseX, float mouseY, bool rightMouseBtnPressed);
+	void Input(int mouseX, int mouseY, bool rightMouseBtnPressed);
 	void Update();
 	void ResizeViewport(UINT resolutionWidth, UINT resolutionHeight);
 	void Render();
