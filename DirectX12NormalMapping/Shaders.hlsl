@@ -41,7 +41,7 @@ VS_OUTPUT vsMain(VS_INPUT input)
 
 	output.worldPos = mul(output.pos, world);
 
-	float3 worldNormal = mul(input.normal, world);
+	float3 worldNormal = normalize(mul(input.normal, world));
 	output.normal = worldNormal;
 
 	output.texCoord = input.texCoord;
@@ -97,12 +97,23 @@ float4 psMain(VS_OUTPUT input) : SV_TARGET
 	}
 	else
 	{
+		float3 normalMapVec = normalTex.Sample(samplerState, input.texCoord);
+		normalMapVec = 2.0f * normalMapVec - 1.0f;
+
+		// todo: 
+		input.normal = normalize(input.normal + normalMapVec);
+
 		float diffuse = clamp(dot(-lightVec, input.normal), 0.0f, 1.0f);
 		float3 cameraDir = normalize(cameraPos - input.pos.xyz);
 		float3 specularDir = lightVec - 2 * dot(lightVec, input.normal) * input.normal;
 		float specular = clamp(dot(specularDir, cameraDir), 0.0f, 1.0f);
 		specular = pow(specular, 2);
+
+		// test
+		//baseColor = (0.5, 0.5, 0.5, 1.0);
+
 		return clamp(baseColor * (ambient + lightFactor * (0.8 * diffuse + 0.5f * specular)), 0.0f, 1.0f);
+	
 	}
 }
 
