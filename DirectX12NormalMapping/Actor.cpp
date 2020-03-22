@@ -2,6 +2,7 @@
 #include <comdef.h>
 #include <wrl.h>
 #include <wincodec.h>
+#include "Engine.h"
 
 
 void Actor::UpdateTransformationMat()
@@ -11,88 +12,12 @@ void Actor::UpdateTransformationMat()
 		XMMatrixTranslationFromVector(m_translationVec);
 }
 
-Texture Actor::LoadTextureFromFile(const wchar_t* const fileName)
+Actor::Actor(Engine* const engine)
+	: m_albedoTex(engine),
+	m_normalTex(engine)
 {
-	using namespace Microsoft::WRL;
+	m_engine = engine;
 
-	Texture texture;
-
-	CoInitialize(nullptr);
-	ComPtr<IWICImagingFactory> imagingFactory = nullptr;
-
-	HRESULT hr = CoCreateInstance(
-		CLSID_WICImagingFactory,
-		nullptr,
-		CLSCTX_INPROC_SERVER,
-		IID_PPV_ARGS(&imagingFactory)
-	);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	IWICBitmapDecoder* bitmapDecoder = nullptr;	// TODO: release
-
-	hr = imagingFactory->CreateDecoderFromFilename(
-		fileName,
-		nullptr,
-		GENERIC_READ,
-		WICDecodeMetadataCacheOnDemand,
-		&bitmapDecoder
-	);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	IWICBitmapFrameDecode* frame = nullptr;	// TODO: release
-
-	hr = bitmapDecoder->GetFrame(0, &frame);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	hr = frame->GetSize(&texture.width, &texture.height);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	const UINT bytesPerPixel = 4;
-
-	UINT textureSize = texture.width * texture.height * bytesPerPixel;
-	if (textureSize == 0)
-	{
-		exit(-1);
-	}
-
-	WICPixelFormatGUID pixelFormat;
-	hr = frame->GetPixelFormat(&pixelFormat);
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	texture.data = std::make_unique<BYTE[]>(textureSize);
-
-	UINT bytesPerRow = texture.width * bytesPerPixel;
-	hr = frame->CopyPixels(nullptr, bytesPerRow, textureSize, texture.data.get());
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	return texture;
-}
-
-Actor::Actor()
-{
 	XMFLOAT3 scaleFloat3 = XMFLOAT3(1.0f, 1.0f, 1.0f);
 	m_scaleVec = XMLoadFloat3(&scaleFloat3);
 
@@ -168,22 +93,34 @@ std::vector<DWORD>& Actor::GetIndices()
 
 void Actor::LoadAlbedoFromFile(const wchar_t* const fileName)
 {
-	m_albedoTex = LoadTextureFromFile(fileName);
+	m_albedoTex.LoadFromFile(fileName);
 }
 
 void Actor::LoadNormalFromFile(const wchar_t* const fileName)
 {
-	m_normalTex = LoadTextureFromFile(fileName);
+	m_normalTex.LoadFromFile(fileName);
+}
+
+void Actor::UploadAlbedoResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle)
+{
+	m_albedoTex.CreateResource(L"Albedo", cpuDescriptorHandle);
+	m_albedoTex.UploadToResource();
+}
+
+void Actor::UploadNormalResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle)
+{
+	m_normalTex.CreateResource(L"Normal", cpuDescriptorHandle);
+	m_normalTex.UploadToResource();
 }
 
 void Actor::ReleaseAlbedo()
 {
-	m_albedoTex.data.release();
+	m_albedoTex.Release();
 }
 
 void Actor::ReleaseNormal()
 {
-	m_normalTex.data.release();
+	m_normalTex.Release();
 }
 
 Texture& Actor::GetAlbedo()

@@ -7,16 +7,10 @@
 #include <DirectXMesh.h>
 #include <WaveFrontReader.h>
 #include <vector>
+#include "Texture.h"
 
 using namespace DirectX;
 using namespace std;
-
-struct Texture
-{
-	unique_ptr<BYTE[]> data;
-	UINT width;
-	UINT height;
-};
 
 class Actor
 {
@@ -32,11 +26,12 @@ private:
 	Texture m_albedoTex;
 	Texture m_normalTex;
 
+	class Engine* m_engine;
+
 	void UpdateTransformationMat();
-	Texture LoadTextureFromFile(const wchar_t* const fileName);
 
 public:
-	Actor();
+	Actor(class Engine* const engine);
 	void SetScale(const XMFLOAT3* const scaleVec);
 	void SetRotation(const XMFLOAT3* const rotationVec);
 	void RotateRoll(float radians);
@@ -49,6 +44,8 @@ public:
 	std::vector<DWORD>& GetIndices();
 	void LoadAlbedoFromFile(const wchar_t* const fileName);
 	void LoadNormalFromFile(const wchar_t* const fileName);
+	void UploadAlbedoResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
+	void UploadNormalResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
 	void ReleaseAlbedo();
 	void ReleaseNormal();
 	Texture& GetAlbedo();

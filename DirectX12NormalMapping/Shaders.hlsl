@@ -27,7 +27,8 @@ cbuffer WvpConstantBuffer : register(b0)
 };
 
 Texture2D tex : register(t0);
-Texture2D depthTex : register(t1);
+Texture2D normalTex : register(t1);
+Texture2D depthTex : register(t2);
 SamplerState samplerState : register(s0);
 SamplerComparisonState cmpSampler : register(s1);
 

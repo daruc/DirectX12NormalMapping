@@ -149,6 +149,8 @@ public:
 	void Update();
 	void ResizeViewport(UINT resolutionWidth, UINT resolutionHeight);
 	void Render();
-
 	void Destroy();
+
+	ComPtr<ID3D12Device> GetDevice() const;
+	ComPtr<ID3D12GraphicsCommandList> GetCommandList() const;
 };

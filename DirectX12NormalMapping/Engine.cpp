@@ -12,7 +12,8 @@ const XMVECTOR Y_UNIT_VEC = XMLoadFloat3(&Y_UNIT_VEC_FLOAT);
 const XMVECTOR Z_UNIT_VEC = XMLoadFloat3(&Z_UNIT_VEC_FLOAT);
 
 Engine::Engine(UINT resolutionWidth, UINT resolutionHeight)
-	: m_resolutionWidth(resolutionWidth), m_resolutionHeight(resolutionHeight)
+	: m_resolutionWidth(resolutionWidth), m_resolutionHeight(resolutionHeight),
+	m_actor(this)
 {
 	m_shadowMapRes = 1024;
 }
@@ -93,20 +94,27 @@ void Engine::CreateRootSignature()
 	rootParameters[0].Descriptor = rootDescriptor;
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-	// texture
-	D3D12_DESCRIPTOR_RANGE descriptorRanges[2];
+	// albedo texture
+	D3D12_DESCRIPTOR_RANGE descriptorRanges[3];
 	descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descriptorRanges[0].NumDescriptors = 1;
 	descriptorRanges[0].BaseShaderRegister = 0;
 	descriptorRanges[0].RegisterSpace = 0;
 	descriptorRanges[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	// depth buffer texture
+	// normal texture
 	descriptorRanges[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descriptorRanges[1].NumDescriptors = 1;
 	descriptorRanges[1].BaseShaderRegister = 1;
 	descriptorRanges[1].RegisterSpace = 0;
 	descriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	// depth buffer texture
+	descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descriptorRanges[2].NumDescriptors = 1;
+	descriptorRanges[2].BaseShaderRegister = 2;
+	descriptorRanges[2].RegisterSpace = 0;
+	descriptorRanges[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	D3D12_ROOT_DESCRIPTOR_TABLE descriptorTable;
 	descriptorTable.NumDescriptorRanges = _countof(descriptorRanges);
@@ -290,78 +298,35 @@ void Engine::LoadShaders()
 
 void Engine::LoadTextures()
 {
-	m_actor.LoadAlbedoFromFile(TEXT("Assets\\color.png"));
-
-	D3D12_RESOURCE_DESC textureDesc = {};
-	textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	textureDesc.Alignment = 0;
-	textureDesc.Width = m_actor.GetAlbedo().width;
-	textureDesc.Height = m_actor.GetAlbedo().height;
-	textureDesc.DepthOrArraySize = 1;
-	textureDesc.MipLevels = 1;
-	textureDesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-	textureDesc.SampleDesc.Count = 1;
-	textureDesc.SampleDesc.Quality = 0;
-	textureDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	HRESULT hr = m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-		D3D12_HEAP_FLAG_NONE,
-		&textureDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&m_textureDefaultHeap)
-	);
-
-	m_textureDefaultHeap->SetName(TEXT("Texture Buffer Resource Heap"));
-	
-	UINT64 textureBufferUploadSize;
-	m_device->GetCopyableFootprints(&textureDesc, 0, 1, 0, nullptr, nullptr, nullptr, &textureBufferUploadSize);
-
-	hr = m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(textureBufferUploadSize),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&m_textureUploadHeap)
-	);
-
-	if (FAILED(hr))
-	{
-		exit(-1);
-	}
-
-	m_textureUploadHeap->SetName(TEXT("Texture Upload Heap"));
-
 	// SRV descriptor heap
 	D3D12_DESCRIPTOR_HEAP_DESC srvDescriptorHeapDesc = {};
 	srvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvDescriptorHeapDesc.NumDescriptors = 2;
+	srvDescriptorHeapDesc.NumDescriptors = 3;
 	srvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
-	hr = m_device->CreateDescriptorHeap(&srvDescriptorHeapDesc, IID_PPV_ARGS(&m_textureDescriptorHeap));
+	HRESULT hr = m_device->CreateDescriptorHeap(&srvDescriptorHeapDesc, IID_PPV_ARGS(&m_textureDescriptorHeap));
 
 	if (FAILED(hr))
 	{
 		exit(-1);
 	}
 
-	m_textureDescriptorHeap->SetName(TEXT("Textures Descriptor Heap"));
+	m_textureDescriptorHeap->SetName(TEXT("SRV Descriptor Heap"));
 
-	// SRV descriptor
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.Format = textureDesc.Format;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
+	m_actor.LoadAlbedoFromFile(TEXT("Assets\\color.png"));
+	m_actor.UploadAlbedoResource(m_textureDescriptorHeap->GetCPUDescriptorHandleForHeapStart());
 
-	m_device->CreateShaderResourceView(
-		m_textureDefaultHeap.Get(),
-		&srvDesc,
-		m_textureDescriptorHeap->GetCPUDescriptorHandleForHeapStart()
+	D3D12_CPU_DESCRIPTOR_HANDLE textureDescriptorHeapStart = m_textureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	UINT srvHandleDescriptorIncrementSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE normalCPUDescriptorHandle(
+		textureDescriptorHeapStart,
+		1,
+		srvHandleDescriptorIncrementSize
 	);
+
+	m_actor.LoadNormalFromFile(TEXT("Assets\\normal.png"));
+	m_actor.UploadNormalResource(normalCPUDescriptorHandle);
 
 	// light depth
 	// SRV descriptor
@@ -371,36 +336,15 @@ void Engine::LoadTextures()
 	srvLightDepthTextDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 	srvLightDepthTextDesc.Texture2D.MipLevels = 1;
 
-	D3D12_CPU_DESCRIPTOR_HANDLE textureDescriptorHeapStart = m_textureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-	UINT srvHandleDescriptorIncrementSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
 	CD3DX12_CPU_DESCRIPTOR_HANDLE lightCPUDescriptorHandle(
 		textureDescriptorHeapStart,
-		1,
+		2,
 		srvHandleDescriptorIncrementSize
 	);
-
 	m_device->CreateShaderResourceView(
 		m_dsLightBuffer.Get(),
 		&srvLightDepthTextDesc,
 		lightCPUDescriptorHandle
-	);
-
-	// store texture in upload heap
-	D3D12_SUBRESOURCE_DATA textureSubresource = {};
-	textureSubresource.pData = m_actor.GetAlbedo().data.get();
-	textureSubresource.RowPitch = 4 * m_actor.GetAlbedo().width;
-	textureSubresource.SlicePitch = textureSubresource.RowPitch * m_actor.GetAlbedo().height;
-
-	UpdateSubresources(m_commandList.Get(), m_textureDefaultHeap.Get(), m_textureUploadHeap.Get(), 0, 0, 1, &textureSubresource);
-
-	m_commandList->ResourceBarrier(
-		1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(
-			m_textureDefaultHeap.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
-		)
 	);
 }
 
@@ -1244,5 +1188,15 @@ void Engine::Destroy()
 {
 	CloseHandle(m_fenceEvent);
 	m_actor.ReleaseObj();
+}
+
+ComPtr<ID3D12Device> Engine::GetDevice() const
+{
+	return m_device;
+}
+
+ComPtr<ID3D12GraphicsCommandList> Engine::GetCommandList() const
+{
+	return m_commandList;
 }
 
