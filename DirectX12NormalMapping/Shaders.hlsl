@@ -2,6 +2,8 @@ struct VS_INPUT
 {
 	float3 pos : POSITION;
 	float3 normal : NORMAL;
+	float3 tangent : TANGENT;
+	float3 bitangent : TANGENT1;
 	float2 texCoord : TEXCOORD;
 };
 
@@ -12,6 +14,8 @@ struct VS_OUTPUT
 	float4 lightWvpPos : TEXCOORD1;
 	float4 wvpPos : SV_POSITION;
 	float3 normal : NORMAL;
+	float3 tangent : TANGENT;
+	float3 bitangent : TANGENT1;
 	float2 texCoord : TEXCOORD;
 };
 
@@ -43,6 +47,12 @@ VS_OUTPUT vsMain(VS_INPUT input)
 
 	float3 worldNormal = normalize(mul(input.normal, world));
 	output.normal = worldNormal;
+
+	float3 worldTangent = mul(input.tangent, world);
+	output.tangent = worldTangent;
+
+	float3 worldBitangent = mul(input.bitangent, world);
+	output.bitangent = worldBitangent;
 
 	output.texCoord = input.texCoord;
 
@@ -99,21 +109,17 @@ float4 psMain(VS_OUTPUT input) : SV_TARGET
 	{
 		float3 normalMapVec = normalTex.Sample(samplerState, input.texCoord);
 		normalMapVec = 2.0f * normalMapVec - 1.0f;
+		normalMapVec.z = clamp(normalMapVec.z, 0.0f, 1.0f);
+		float3x3 TBN2World = float3x3(input.tangent, input.bitangent, input.normal);
+		float3 absoluteNormal = normalize(mul(normalMapVec, TBN2World));
 
-		// todo: 
-		input.normal = normalize(input.normal + normalMapVec);
-
-		float diffuse = clamp(dot(-lightVec, input.normal), 0.0f, 1.0f);
+		float diffuse = clamp(dot(-lightVec, absoluteNormal), 0.0f, 1.0f);
 		float3 cameraDir = normalize(cameraPos - input.pos.xyz);
-		float3 specularDir = lightVec - 2 * dot(lightVec, input.normal) * input.normal;
+		float3 specularDir = lightVec - 2 * dot(lightVec, absoluteNormal) * absoluteNormal;
 		float specular = clamp(dot(specularDir, cameraDir), 0.0f, 1.0f);
 		specular = pow(specular, 2);
 
-		// test
-		//baseColor = (0.5, 0.5, 0.5, 1.0);
-
-		return clamp(baseColor * (ambient + lightFactor * (0.8 * diffuse + 0.5f * specular)), 0.0f, 1.0f);
-	
+		return clamp(baseColor * (ambient + lightFactor * (1.8 * diffuse + 0.0f * specular)), 0.0f, 1.0f);
 	}
 }
 

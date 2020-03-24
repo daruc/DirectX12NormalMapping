@@ -12,23 +12,32 @@
 using namespace DirectX;
 using namespace std;
 
+struct Vertex
+{
+	XMFLOAT3 position;
+	XMFLOAT3 normal;
+	XMFLOAT3 tanget;
+	XMFLOAT3 bitangent;
+	XMFLOAT2 textureCoordinate;
+};
+
 class Actor
 {
 private:
 	XMVECTOR m_scaleVec;
 	XMVECTOR m_rotationVec;
 	XMVECTOR m_translationVec;
-
 	XMMATRIX m_worldMat;
 
 	WaveFrontReader<DWORD> waveFrontReader;
-
 	Texture m_albedoTex;
 	Texture m_normalTex;
+	std::vector<Vertex> m_verticesWithTangents;
 
 	class Engine* m_engine;
 
 	void UpdateTransformationMat();
+	void CalculateTangents();
 
 public:
 	Actor(class Engine* const engine);
@@ -40,8 +49,8 @@ public:
 	XMMATRIX GetWorldMat() const;
 	void LoadObjFromFile(const wchar_t* const fileName);
 	void ReleaseObj();
-	std::vector<WaveFrontReader<DWORD>::Vertex>& GetVerticles();
-	std::vector<DWORD>& GetIndices();
+	vector<Vertex>& GetVertices();
+	vector<DWORD>& GetIndices();
 	void LoadAlbedoFromFile(const wchar_t* const fileName);
 	void LoadNormalFromFile(const wchar_t* const fileName);
 	void UploadAlbedoResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);

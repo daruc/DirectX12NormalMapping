@@ -355,7 +355,9 @@ void Engine::CreatePipelineStateObject()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT", 1, DXGI_FORMAT_R32G32B32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc = {};
@@ -404,7 +406,9 @@ void Engine::CreateLightPso()
 	{
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TANGENT", 1, DXGI_FORMAT_R32G32B32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	D3D12_INPUT_LAYOUT_DESC inputLayoutDesc = {};
@@ -450,8 +454,8 @@ void Engine::CreateVertexBuffer()
 {
 	m_actor.LoadObjFromFile(TEXT("Assets\\model.obj"));
 
-	std::vector<WaveFrontReader<DWORD>::Vertex>& verticles = m_actor.GetVerticles();
-	int vBufferSize = verticles.size() * sizeof(WaveFrontReader<DWORD>::Vertex);
+	std::vector<Vertex>& verticles = m_actor.GetVertices();
+	int vBufferSize = verticles.size() * sizeof(Vertex);
 
 	// create default heap - memory on GPU. Only GPU has access to it.
 	HRESULT hr = m_device->CreateCommittedResource(
@@ -595,7 +599,7 @@ void Engine::CreateVertexBuffer()
 
 	// create vertex buffer view
 	m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
-	m_vertexBufferView.StrideInBytes = sizeof(WaveFrontReader<DWORD>::Vertex);
+	m_vertexBufferView.StrideInBytes = sizeof(Vertex);
 	m_vertexBufferView.SizeInBytes = vBufferSize;
 
 	// create index buffer view

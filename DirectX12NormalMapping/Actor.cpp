@@ -12,6 +12,68 @@ void Actor::UpdateTransformationMat()
 		XMMatrixTranslationFromVector(m_translationVec);
 }
 
+void Actor::CalculateTangents()
+{
+	typedef WaveFrontReader<DWORD>::Vertex ReaderVertex;
+
+	vector<DWORD>& indices = waveFrontReader.indices;
+	vector<ReaderVertex>& vertices = waveFrontReader.vertices;
+
+	for (DWORD indexOfIndex = 0; indexOfIndex < indices.size(); indexOfIndex += 3)
+	{
+		DWORD vertexIndex0 = indices[indexOfIndex];
+		ReaderVertex& readerVertex0 = vertices[vertexIndex0];
+		XMVECTOR vertexPos0 = XMLoadFloat3(&readerVertex0.position);
+		XMVECTOR texCoord0 = XMLoadFloat2(&readerVertex0.textureCoordinate);
+
+		DWORD vertexIndex1 = indices[indexOfIndex + 1];
+		ReaderVertex& readerVertex1 = vertices[vertexIndex1];
+		XMVECTOR vertexPos1 = XMLoadFloat3(&readerVertex1.position);
+		XMVECTOR texCoord1 = XMLoadFloat2(&readerVertex1.textureCoordinate);
+
+		DWORD vertexIndex2 = indices[indexOfIndex + 2];
+		ReaderVertex& readerVertex2 = vertices[vertexIndex2];
+		XMVECTOR vertexPos2 = XMLoadFloat3(&readerVertex2.position);
+		XMVECTOR texCoord2 = XMLoadFloat2(&readerVertex2.textureCoordinate);
+
+		XMVECTOR deltaPos0Vec = vertexPos1 - vertexPos0;
+		deltaPos0Vec = XMVector3Normalize(deltaPos0Vec);
+		XMFLOAT3 deltaPos0;
+		XMStoreFloat3(&deltaPos0, deltaPos0Vec);
+
+		XMVECTOR deltaPos1Vec = vertexPos2 - vertexPos0;
+		deltaPos1Vec = XMVector3Normalize(deltaPos1Vec);
+		XMFLOAT3 deltaPos1;
+		XMStoreFloat3(&deltaPos1, deltaPos1Vec);
+
+		XMVECTOR deltaTexCoordVec0 = texCoord1 - texCoord0;
+		deltaTexCoordVec0 = XMVector2Normalize(deltaTexCoordVec0);
+		XMFLOAT2 deltaTexCoord0;
+		XMStoreFloat2(&deltaTexCoord0, deltaTexCoordVec0);
+
+		XMVECTOR deltaTexCoord1Vec = texCoord2 - texCoord0;
+		deltaTexCoord1Vec = XMVector2Normalize(deltaTexCoord1Vec);
+		XMFLOAT2 deltaTexCoord1;
+		XMStoreFloat2(&deltaTexCoord1, deltaTexCoord1Vec);
+
+		float det = (deltaTexCoord0.x * deltaTexCoord1.y - deltaTexCoord0.y * deltaTexCoord1.x);
+
+		XMVECTOR tangent = (deltaPos0Vec * deltaTexCoord1.y - deltaPos1Vec * deltaTexCoord0.y) / det;
+		tangent = XMVector3Normalize(tangent);
+		XMVECTOR bitangent = (deltaPos1Vec * deltaTexCoord0.x - deltaPos0Vec * deltaTexCoord1.x) / det;
+		bitangent = XMVector3Normalize(bitangent);
+
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex0].tanget, tangent);
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex0].bitangent, bitangent);
+
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex1].tanget, tangent);
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex1].bitangent, bitangent);
+
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex2].tanget, tangent);
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex2].bitangent, bitangent);
+	}
+}
+
 Actor::Actor(Engine* const engine)
 	: m_albedoTex(engine),
 	m_normalTex(engine)
@@ -69,11 +131,25 @@ XMMATRIX Actor::GetWorldMat() const
 
 void Actor::LoadObjFromFile(const wchar_t* const fileName)
 {
+	typedef WaveFrontReader<DWORD>::Vertex ReaderVertex;
+
 	HRESULT hr = waveFrontReader.Load(fileName);
 	if (FAILED(hr))
 	{
 		exit(-1);
 	}
+
+	for (const ReaderVertex& readerVertex : waveFrontReader.vertices)
+	{
+		Vertex vertex;
+		vertex.position = readerVertex.position;
+		vertex.normal = readerVertex.normal;
+		vertex.textureCoordinate = readerVertex.textureCoordinate;
+
+		m_verticesWithTangents.push_back(vertex);
+	}
+	
+	CalculateTangents();
 }
 
 void Actor::ReleaseObj()
@@ -81,9 +157,9 @@ void Actor::ReleaseObj()
 	waveFrontReader.Clear();
 }
 
-std::vector<WaveFrontReader<DWORD>::Vertex>& Actor::GetVerticles()
+vector<Vertex>& Actor::GetVertices()
 {
-	return waveFrontReader.vertices;
+	return m_verticesWithTangents;
 }
 
 std::vector<DWORD>& Actor::GetIndices()
