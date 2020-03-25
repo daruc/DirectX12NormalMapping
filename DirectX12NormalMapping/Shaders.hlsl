@@ -121,7 +121,7 @@ float4 psMain(VS_OUTPUT input) : SV_TARGET
 		float specular = clamp(dot(specularDir, cameraDir), 0.0f, 1.0f);
 
 		float specularFactor = tex.Sample(samplerState, input.texCoord);
-		specular = pow(specular, 2 / specularFactor);
+		specular = pow(specular, 1 / specularFactor);
 
 		return clamp(baseColor * (ambient + 0.4 * occlusion +
 			lightFactor * (1.2 * diffuse + specularFactor * specular)), 0.0f, 1.0f);
