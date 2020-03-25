@@ -95,7 +95,7 @@ void Engine::CreateRootSignature()
 	rootParameters[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	// albedo texture
-	D3D12_DESCRIPTOR_RANGE descriptorRanges[3];
+	D3D12_DESCRIPTOR_RANGE descriptorRanges[5];
 	descriptorRanges[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descriptorRanges[0].NumDescriptors = 1;
 	descriptorRanges[0].BaseShaderRegister = 0;
@@ -109,12 +109,26 @@ void Engine::CreateRootSignature()
 	descriptorRanges[1].RegisterSpace = 0;
 	descriptorRanges[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-	// depth buffer texture
+	// oclussion texture
 	descriptorRanges[2].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descriptorRanges[2].NumDescriptors = 1;
 	descriptorRanges[2].BaseShaderRegister = 2;
 	descriptorRanges[2].RegisterSpace = 0;
 	descriptorRanges[2].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	// roughness texture
+	descriptorRanges[3].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descriptorRanges[3].NumDescriptors = 1;
+	descriptorRanges[3].BaseShaderRegister = 3;
+	descriptorRanges[3].RegisterSpace = 0;
+	descriptorRanges[3].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	// depth buffer texture
+	descriptorRanges[4].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	descriptorRanges[4].NumDescriptors = 1;
+	descriptorRanges[4].BaseShaderRegister = 4;
+	descriptorRanges[4].RegisterSpace = 0;
+	descriptorRanges[4].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	D3D12_ROOT_DESCRIPTOR_TABLE descriptorTable;
 	descriptorTable.NumDescriptorRanges = _countof(descriptorRanges);
@@ -301,7 +315,7 @@ void Engine::LoadTextures()
 	// SRV descriptor heap
 	D3D12_DESCRIPTOR_HEAP_DESC srvDescriptorHeapDesc = {};
 	srvDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	srvDescriptorHeapDesc.NumDescriptors = 3;
+	srvDescriptorHeapDesc.NumDescriptors = 5;
 	srvDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 
 	HRESULT hr = m_device->CreateDescriptorHeap(&srvDescriptorHeapDesc, IID_PPV_ARGS(&m_textureDescriptorHeap));
@@ -319,14 +333,30 @@ void Engine::LoadTextures()
 	D3D12_CPU_DESCRIPTOR_HANDLE textureDescriptorHeapStart = m_textureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	UINT srvHandleDescriptorIncrementSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+
+	m_actor.LoadNormalFromFile(TEXT("Assets\\normal.png"));
 	CD3DX12_CPU_DESCRIPTOR_HANDLE normalCPUDescriptorHandle(
 		textureDescriptorHeapStart,
 		1,
 		srvHandleDescriptorIncrementSize
 	);
-
-	m_actor.LoadNormalFromFile(TEXT("Assets\\normal.png"));
 	m_actor.UploadNormalResource(normalCPUDescriptorHandle);
+
+	m_actor.LoadOcclusionFromFile(TEXT("Assets\\oclussion.png"));
+	CD3DX12_CPU_DESCRIPTOR_HANDLE oclussionCpuDescriptorHandle(
+		textureDescriptorHeapStart,
+		2,
+		srvHandleDescriptorIncrementSize
+	);
+	m_actor.UploadOclussionResource(oclussionCpuDescriptorHandle);
+
+	m_actor.LoadRoughnessFromFile(TEXT("Assets\\roughness.png"));
+	CD3DX12_CPU_DESCRIPTOR_HANDLE roughnessCpuDescriptorHandle(
+		textureDescriptorHeapStart,
+		3,
+		srvHandleDescriptorIncrementSize
+	);
+	m_actor.UploadRoughnessResource(roughnessCpuDescriptorHandle);
 
 	// light depth
 	// SRV descriptor
@@ -338,7 +368,7 @@ void Engine::LoadTextures()
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE lightCPUDescriptorHandle(
 		textureDescriptorHeapStart,
-		2,
+		4,
 		srvHandleDescriptorIncrementSize
 	);
 	m_device->CreateShaderResourceView(
@@ -406,7 +436,6 @@ void Engine::CreateLightPso()
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "TANGENT", 1, DXGI_FORMAT_R32G32B32_FLOAT, 0, 36, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 48, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
@@ -540,7 +569,8 @@ void Engine::CreateVertexBuffer()
 
 	m_commandList->ResourceBarrier(
 		1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(m_indexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER)
+		&CD3DX12_RESOURCE_BARRIER::Transition(m_indexBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER)
 	);
 
 	// create depth/stencil descriptor heap
@@ -841,8 +871,6 @@ void Engine::UpdateWvp(float deltaSec)
 		m_camera.RotateYaw(-rotationSpeed * m_mouseDeltaX);
 		m_camera.RotatePitch(-rotationSpeed * m_mouseDeltaY);
 	}
-
-	//m_actor.RotateRoll(deltaSec);
 
 	XMMATRIX worldTransposedMat = XMMatrixTranspose(m_actor.GetWorldMat());
 	XMMATRIX wvpMat = m_actor.GetWorldMat() * m_camera.GetViewProjectionMat();
@@ -1191,6 +1219,10 @@ void Engine::Destroy()
 {
 	CloseHandle(m_fenceEvent);
 	m_actor.ReleaseObj();
+	m_actor.ReleaseAlbedo();
+	m_actor.ReleaseNormal();
+	m_actor.ReleaseOclussion();
+	m_actor.ReleaseRoughness();
 }
 
 ComPtr<ID3D12Device> Engine::GetDevice() const

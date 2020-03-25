@@ -31,6 +31,8 @@ private:
 	WaveFrontReader<DWORD> waveFrontReader;
 	Texture m_albedoTex;
 	Texture m_normalTex;
+	Texture m_occlusionTex;
+	Texture m_roughnessTex;
 	std::vector<Vertex> m_verticesWithTangents;
 
 	class Engine* m_engine;
@@ -52,11 +54,15 @@ public:
 	vector<DWORD>& GetIndices();
 	void LoadAlbedoFromFile(const wchar_t* const fileName);
 	void LoadNormalFromFile(const wchar_t* const fileName);
+	void LoadRoughnessFromFile(const wchar_t* const fileName);
+	void LoadOcclusionFromFile(const wchar_t* const fileName);
 	void UploadAlbedoResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
 	void UploadNormalResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
+	void UploadOclussionResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
+	void UploadRoughnessResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle);
 	void ReleaseAlbedo();
 	void ReleaseNormal();
-	Texture& GetAlbedo();
-	Texture& GetNormal();
+	void ReleaseOclussion();
+	void ReleaseRoughness();
 };
 

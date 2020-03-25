@@ -30,7 +30,9 @@ cbuffer WvpConstantBuffer : register(b0)
 
 Texture2D tex : register(t0);
 Texture2D normalTex : register(t1);
-Texture2D depthTex : register(t2);
+Texture2D occlusionTex : register(t2);
+Texture2D roughnessTex : register(t3);
+Texture2D depthTex : register(t4);
 SamplerState samplerState : register(s0);
 SamplerComparisonState cmpSampler : register(s1);
 
@@ -94,10 +96,12 @@ float4 psMain(VS_OUTPUT input) : SV_TARGET
 	inShadow = lightFactor <= 0.0f ||
 		(dot(lightDirection, lightVec) < cos(lightFov / 2.0f));
 
+	float occlusion = tex.Sample(samplerState, input.texCoord);
+	occlusion = clamp(occlusion - 0.5f, -0.5f, 0.5f);
 
 	if (inShadow)
 	{
-		return clamp(baseColor * ambient, 0.0f, 1.0f);
+		return clamp(baseColor * (ambient + 0.4 * occlusion), 0.0f, 1.0f);
 	}
 	else
 	{
@@ -111,12 +115,16 @@ float4 psMain(VS_OUTPUT input) : SV_TARGET
 		float3 absoluteNormal = normalize(mul(normalMapVec, TBN2World));
 
 		float diffuse = clamp(dot(-lightVec, absoluteNormal), 0.0f, 1.0f);
+
 		float3 cameraDir = normalize(cameraPos - input.pos.xyz);
 		float3 specularDir = lightVec - 2 * dot(lightVec, absoluteNormal) * absoluteNormal;
 		float specular = clamp(dot(specularDir, cameraDir), 0.0f, 1.0f);
-		specular = pow(specular, 2);
 
-		return clamp(baseColor * (ambient + lightFactor * (1.2 * diffuse + 0.5f * specular)), 0.0f, 1.0f);
+		float specularFactor = tex.Sample(samplerState, input.texCoord);
+		specular = pow(specular, 2 / specularFactor);
+
+		return clamp(baseColor * (ambient + 0.4 * occlusion +
+			lightFactor * (1.2 * diffuse + specularFactor * specular)), 0.0f, 1.0f);
 	}
 }
 

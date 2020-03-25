@@ -92,7 +92,9 @@ void Actor::CalculateTangents()
 
 Actor::Actor(Engine* const engine)
 	: m_albedoTex(engine),
-	m_normalTex(engine)
+	m_normalTex(engine),
+	m_occlusionTex(engine),
+	m_roughnessTex(engine)
 {
 	m_engine = engine;
 
@@ -194,6 +196,16 @@ void Actor::LoadNormalFromFile(const wchar_t* const fileName)
 	m_normalTex.LoadFromFile(fileName);
 }
 
+void Actor::LoadRoughnessFromFile(const wchar_t * const fileName)
+{
+	m_roughnessTex.LoadFromFile(fileName);
+}
+
+void Actor::LoadOcclusionFromFile(const wchar_t* const fileName)
+{
+	m_occlusionTex.LoadFromFile(fileName);
+}
+
 void Actor::UploadAlbedoResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle)
 {
 	m_albedoTex.CreateResource(L"Albedo", cpuDescriptorHandle);
@@ -206,6 +218,18 @@ void Actor::UploadNormalResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle
 	m_normalTex.UploadToResource();
 }
 
+void Actor::UploadOclussionResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle)
+{
+	m_occlusionTex.CreateResource(L"Oclussion", cpuDescriptorHandle);
+	m_occlusionTex.UploadToResource();
+}
+
+void Actor::UploadRoughnessResource(D3D12_CPU_DESCRIPTOR_HANDLE cpuDescriptorHandle)
+{
+	m_roughnessTex.CreateResource(L"Roughness", cpuDescriptorHandle);
+	m_roughnessTex.UploadToResource();
+}
+
 void Actor::ReleaseAlbedo()
 {
 	m_albedoTex.Release();
@@ -216,12 +240,12 @@ void Actor::ReleaseNormal()
 	m_normalTex.Release();
 }
 
-Texture& Actor::GetAlbedo()
+void Actor::ReleaseOclussion()
 {
-	return m_albedoTex;
+	m_occlusionTex.Release();
 }
 
-Texture& Actor::GetNormal()
+void Actor::ReleaseRoughness()
 {
-	return m_normalTex;
+	m_roughnessTex.Release();
 }
