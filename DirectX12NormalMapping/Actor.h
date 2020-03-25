@@ -16,8 +16,7 @@ struct Vertex
 {
 	XMFLOAT3 position;
 	XMFLOAT3 normal;
-	XMFLOAT3 tanget;
-	XMFLOAT3 bitangent;
+	XMFLOAT3 tangent;
 	XMFLOAT2 textureCoordinate;
 };
 

@@ -36,12 +36,12 @@ void Actor::CalculateTangents()
 		XMVECTOR vertexPos2 = XMLoadFloat3(&readerVertex2.position);
 		XMVECTOR texCoord2 = XMLoadFloat2(&readerVertex2.textureCoordinate);
 
-		XMVECTOR deltaPos0Vec = vertexPos1 - vertexPos0;
+		XMVECTOR deltaPos0Vec = vertexPos0 - vertexPos2;
 		deltaPos0Vec = XMVector3Normalize(deltaPos0Vec);
 		XMFLOAT3 deltaPos0;
 		XMStoreFloat3(&deltaPos0, deltaPos0Vec);
 
-		XMVECTOR deltaPos1Vec = vertexPos2 - vertexPos0;
+		XMVECTOR deltaPos1Vec = vertexPos2 - vertexPos1;
 		deltaPos1Vec = XMVector3Normalize(deltaPos1Vec);
 		XMFLOAT3 deltaPos1;
 		XMStoreFloat3(&deltaPos1, deltaPos1Vec);
@@ -58,19 +58,35 @@ void Actor::CalculateTangents()
 
 		float det = (deltaTexCoord0.x * deltaTexCoord1.y - deltaTexCoord0.y * deltaTexCoord1.x);
 
-		XMVECTOR tangent = (deltaPos0Vec * deltaTexCoord1.y - deltaPos1Vec * deltaTexCoord0.y) / det;
+		XMVECTOR tangent = (deltaPos0Vec * deltaTexCoord0.y - deltaPos1Vec * deltaTexCoord1.y) / det;
 		tangent = XMVector3Normalize(tangent);
-		XMVECTOR bitangent = (deltaPos1Vec * deltaTexCoord0.x - deltaPos0Vec * deltaTexCoord1.x) / det;
-		bitangent = XMVector3Normalize(bitangent);
 
-		XMStoreFloat3(&m_verticesWithTangents[vertexIndex0].tanget, tangent);
-		XMStoreFloat3(&m_verticesWithTangents[vertexIndex0].bitangent, bitangent);
+		XMVECTOR tangentSum0 = XMLoadFloat3(&m_verticesWithTangents[vertexIndex0].tangent) + tangent;
+		XMVECTOR tangentSum1 = XMLoadFloat3(&m_verticesWithTangents[vertexIndex1].tangent) + tangent;
+		XMVECTOR tangentSum2 = XMLoadFloat3(&m_verticesWithTangents[vertexIndex2].tangent) + tangent;
 
-		XMStoreFloat3(&m_verticesWithTangents[vertexIndex1].tanget, tangent);
-		XMStoreFloat3(&m_verticesWithTangents[vertexIndex1].bitangent, bitangent);
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex0].tangent, tangentSum0);
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex1].tangent, tangentSum1);
+		XMStoreFloat3(&m_verticesWithTangents[vertexIndex2].tangent, tangentSum2);
+	}
 
-		XMStoreFloat3(&m_verticesWithTangents[vertexIndex2].tanget, tangent);
-		XMStoreFloat3(&m_verticesWithTangents[vertexIndex2].bitangent, bitangent);
+	vector<UINT> verticesRepeatings(vertices.size());
+	
+	for (int i = 0; i < vertices.size(); ++i)
+	{
+		verticesRepeatings[i] = 0;
+	}
+
+	for (DWORD index : indices)
+	{
+		++verticesRepeatings[index];
+	}
+
+	for (int i = 0; i < vertices.size(); ++i)
+	{
+		XMVECTOR vertexTangentAvg = XMLoadFloat3(&m_verticesWithTangents[i].tangent);
+		vertexTangentAvg /= verticesRepeatings[i];
+		XMStoreFloat3(&m_verticesWithTangents[i].tangent, vertexTangentAvg);
 	}
 }
 
@@ -144,6 +160,7 @@ void Actor::LoadObjFromFile(const wchar_t* const fileName)
 		Vertex vertex;
 		vertex.position = readerVertex.position;
 		vertex.normal = readerVertex.normal;
+		vertex.tangent = XMFLOAT3(0.0f, 0.0f, 0.0f);
 		vertex.textureCoordinate = readerVertex.textureCoordinate;
 
 		m_verticesWithTangents.push_back(vertex);
